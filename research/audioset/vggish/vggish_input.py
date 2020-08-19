@@ -95,3 +95,52 @@ def wavfile_to_examples(wav_file):
   assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
   samples = wav_data / 32768.0  # Convert to [-1.0, +1.0]
   return waveform_to_examples(samples, sr)
+
+def wavform_to_frames(data, sample_rate):
+    """Converts audio waveform into an array of windows to be linked with VGGish features"""
+    # Convert to mono.
+    if len(data.shape) > 1:
+        data = np.mean(data, axis=1)
+    # Resample to the rate assumed by VGGish.
+    if sample_rate != vggish_params.SAMPLE_RATE:
+        data = resampy.resample(data, sample_rate, vggish_params.SAMPLE_RATE)
+
+    window_length_secs = vggish_params.STFT_WINDOW_LENGTH_SECONDS
+    hop_length_secs = vggish_params.STFT_HOP_LENGTH_SECONDS
+    audio_sample_rate = vggish_params.SAMPLE_RATE
+    window_length_samples = int(round(audio_sample_rate * window_length_secs))
+    hop_length_samples = int(round(audio_sample_rate * hop_length_secs))
+
+    frames = mel_features.frame(data, window_length_samples, hop_length_samples)
+
+    return frames
+
+def wavfile_to_frames(wav_file):
+  """Convenience wrapper around waveform_to_frames() for a common WAV format.
+
+  Args:
+    wav_file: String path to a file, or a file-like object. The file
+    is assumed to contain WAV audio data with signed 16-bit PCM samples.
+
+  Returns:
+    See waveform_to_frames.
+  """
+  wav_data, sr = wav_read(wav_file)
+  assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
+  samples = wav_data / 32768.0  # Convert to [-1.0, +1.0]
+  return wavform_to_frames(samples, sr)
+
+def wavfile_to_waveform(wav_file):
+
+    wav_data, sr = wav_read(wav_file)
+    assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
+    data = wav_data / 32768.0  # Convert to [-1.0, +1.0]
+
+    if len(data.shape) > 1:
+        data = np.mean(data, axis=1)
+    # Resample to the rate assumed by VGGish.
+    if sr != vggish_params.SAMPLE_RATE:
+        data = resampy.resample(data, sr, vggish_params.SAMPLE_RATE)
+        sr=vggish_params.SAMPLE_RATE
+
+    return data, sr
